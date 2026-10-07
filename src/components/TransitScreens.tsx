@@ -29,6 +29,7 @@ import {
   MRTStationHub,
   PlannedRouteOption,
 } from '../data/singaporeTransit';
+import { ApiHealthResponse } from '../services/ltaClient';
 import {
   BusServiceBadge,
   CrowdGauge,
@@ -50,8 +51,10 @@ interface NearbyBusArrivalsScreenProps {
   pinnedServices: string[];
   onTogglePinService: (key: string) => void;
   onOpenStationHub: (stationId: string) => void;
-  onRefreshArrivals: () => void;
+  onRefreshArrivals: (stopCode?: string, serviceNo?: string) => void;
   lastUpdatedSecondsAgo: number;
+  isFetchingLta?: boolean;
+  ltaSourceLabel?: string;
 }
 
 export const NearbyBusArrivalsScreen: React.FC<NearbyBusArrivalsScreenProps> = ({
@@ -65,19 +68,33 @@ export const NearbyBusArrivalsScreen: React.FC<NearbyBusArrivalsScreenProps> = (
   onOpenStationHub,
   onRefreshArrivals,
   lastUpdatedSecondsAgo,
+  isFetchingLta = false,
+  ltaSourceLabel = 'LTA DataMall v3 (20s)',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [ltaStopInput, setLtaStopInput] = useState(selectedStopCode || '04121');
+  const [ltaServiceInput, setLtaServiceInput] = useState('');
   const [crowdFilter, setCrowdFilter] = useState<'ALL' | 'SEATS_ONLY'>('ALL');
   const [expandedStops, setExpandedStops] = useState<Record<string, boolean>>({
+    '04121': true,
     '09048': true,
-    '09022': true,
+    '09022': false,
     '08057': false,
     '03019': false,
   });
 
   const toggleStopExpand = (code: string) => {
     setExpandedStops((prev) => ({ ...prev, [code]: !prev[code] }));
+    setLtaStopInput(code);
     onSelectBusStop(code);
+  };
+
+  const handleDirectLtaQuery = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = ltaStopInput.trim() || '04121';
+    setExpandedStops((prev) => ({ ...prev, [cleanCode]: true }));
+    onSelectBusStop(cleanCode);
+    onRefreshArrivals(cleanCode, ltaServiceInput.trim() || undefined);
   };
 
   const filteredStops = busStops
@@ -161,17 +178,73 @@ export const NearbyBusArrivalsScreen: React.FC<NearbyBusArrivalsScreenProps> = (
 
           <button
             type="button"
-            onClick={onRefreshArrivals}
+            onClick={() =>
+              onRefreshArrivals(
+                ltaStopInput.trim() || selectedStopCode,
+                ltaServiceInput.trim() || undefined
+              )
+            }
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px] font-semibold text-[#0071e3] hover:bg-[#0071e3]/8 active:scale-98 transition-all tnum"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${isFetchingLta ? 'animate-spin' : ''}`}
+            />
             <span>
-              {lastUpdatedSecondsAgo === 0
-                ? 'Just updated'
-                : `${lastUpdatedSecondsAgo}s ago`}
+              {isFetchingLta
+                ? 'Syncing LTA...'
+                : lastUpdatedSecondsAgo === 0
+                ? 'Just updated (20s)'
+                : `${lastUpdatedSecondsAgo}s / 20s`}
             </span>
           </button>
         </div>
+
+        {/* Direct LTA DataMall v3 BusArrival Query Form (?BusStopCode=04121&ServiceNo=7) */}
+        <form
+          onSubmit={handleDirectLtaQuery}
+          className="apple-card p-3 flex flex-col gap-2"
+        >
+          <div className="flex items-center justify-between text-[11px] text-[#86868b] tnum">
+            <span className="font-semibold text-[#1d1d1f]">
+              LTA v3 BusArrival Live Query
+            </span>
+            <span>{ltaSourceLabel}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center bg-[#f2f2f7] rounded-[10px] px-2.5 h-9">
+              <span className="text-[11px] font-semibold text-[#86868b] mr-1.5 shrink-0">
+                BusStopCode
+              </span>
+              <input
+                type="text"
+                value={ltaStopInput}
+                onChange={(e) => setLtaStopInput(e.target.value)}
+                placeholder="04121"
+                maxLength={5}
+                className="w-full bg-transparent text-[13px] font-bold text-[#1d1d1f] tnum focus:outline-none"
+              />
+            </div>
+            <div className="w-28 flex items-center bg-[#f2f2f7] rounded-[10px] px-2.5 h-9">
+              <span className="text-[11px] font-semibold text-[#86868b] mr-1.5 shrink-0">
+                Svc
+              </span>
+              <input
+                type="text"
+                value={ltaServiceInput}
+                onChange={(e) => setLtaServiceInput(e.target.value)}
+                placeholder="All / 7"
+                maxLength={5}
+                className="w-full bg-transparent text-[13px] font-bold text-[#1d1d1f] tnum focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="h-9 px-3 rounded-[10px] bg-[#0071e3] hover:bg-[#0059b5] text-white text-[12px] font-semibold transition-colors whitespace-nowrap shrink-0"
+            >
+              Fetch
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Quick MRT Station Interchange Strip */}
@@ -885,11 +958,18 @@ export const RoutePlannerScreen: React.FC<RoutePlannerScreenProps> = ({
 interface NetworkStatusAndWalletScreenProps {
   selectedLineFilter: MRTLineId | 'ALL';
   onSelectLineFilter: (line: MRTLineId | 'ALL') => void;
+  apiHealth?: ApiHealthResponse | null;
+  onCheckApiHealth?: (verifyUpstream?: boolean) => void;
 }
 
 export const NetworkStatusAndWalletScreen: React.FC<
   NetworkStatusAndWalletScreenProps
-> = ({ selectedLineFilter, onSelectLineFilter }) => {
+> = ({
+  selectedLineFilter,
+  onSelectLineFilter,
+  apiHealth,
+  onCheckApiHealth,
+}) => {
   const [cardBalance, setCardBalance] = useState<number>(28.45);
   const [topUpFeedback, setTopUpFeedback] = useState<string | null>(null);
 
@@ -901,6 +981,60 @@ export const NetworkStatusAndWalletScreen: React.FC<
 
   return (
     <div className="flex flex-col gap-4">
+      {/* /api/health Monitor Card */}
+      <div className="apple-card p-4 flex flex-col gap-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                apiHealth?.status === 'ok' ? 'bg-[#34c759]' : 'bg-[#ff9500]'
+              }`}
+            />
+            <span className="text-[14px] font-semibold text-[#1d1d1f]">
+              API Health Monitor (/api/health)
+            </span>
+          </div>
+          {onCheckApiHealth && (
+            <button
+              type="button"
+              onClick={() => onCheckApiHealth(true)}
+              className="text-[12px] font-semibold text-[#0071e3] hover:underline whitespace-nowrap"
+            >
+              Verify Upstream
+            </button>
+          )}
+        </div>
+
+        <div className="text-[12px] text-[#86868b] flex flex-col gap-1 tnum">
+          <div className="flex items-center justify-between">
+            <span>BusArrival Endpoint:</span>
+            <span className="font-semibold text-[#1d1d1f]">
+              /api/bus-arrival?BusStopCode=04121
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>LTA AccountKey Env:</span>
+            <span
+              className={`font-semibold ${
+                apiHealth?.ltaDataMall.configured
+                  ? 'text-[#34c759]'
+                  : 'text-[#ff9500]'
+              }`}
+            >
+              {apiHealth?.ltaDataMall.configured
+                ? 'Configured (Live LTA)'
+                : 'Pending Vercel Env (Fallback Ready)'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Auto Refresh Cadence:</span>
+            <span className="font-semibold text-[#1d1d1f]">
+              Every {apiHealth?.ltaDataMall.refreshIntervalSeconds ?? 20}s
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Live Network Status Section */}
       <div className="apple-card overflow-hidden">
         <div className="px-4 py-3.5 border-b border-[#e5e5ea] flex items-center justify-between">

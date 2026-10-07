@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Bus,
-  Compass,
   CreditCard,
   LayoutGrid,
   Map,
@@ -18,6 +17,12 @@ import {
   PLANNED_ROUTES,
   PlannedRouteOption,
 } from './data/singaporeTransit';
+import {
+  ApiHealthResponse,
+  fetchApiHealth,
+  fetchLtaBusArrivals,
+  mapLtaServicesToAppServices,
+} from './services/ltaClient';
 import { SingaporeTransitMap } from './components/SingaporeTransitMap';
 import {
   MRTStationBoardScreen,
@@ -36,7 +41,7 @@ export default function App() {
   const [busStops, setBusStops] = useState<BusStop[]>(INITIAL_BUS_STOPS);
   const [stations, setStations] = useState<MRTStationHub[]>(MRT_STATION_HUBS);
 
-  const [selectedStopCode, setSelectedStopCode] = useState<string>('09048');
+  const [selectedStopCode, setSelectedStopCode] = useState<string>('04121');
   const [selectedStationId, setSelectedStationId] = useState<string>('orchard');
   const [activeBusService, setActiveBusService] =
     useState<BusServiceArrival | null>(INITIAL_BUS_STOPS[0].services[0]);
@@ -46,15 +51,99 @@ export default function App() {
     MRTLineId | 'ALL'
   >('ALL');
   const [pinnedServices, setPinnedServices] = useState<string[]>([
+    '04121:7',
     '09048:190',
-    '09048:14',
   ]);
   const [lastUpdatedSecondsAgo, setLastUpdatedSecondsAgo] = useState<number>(0);
+  const [isFetchingLta, setIsFetchingLta] = useState<boolean>(false);
+  const [ltaSourceLabel, setLtaSourceLabel] = useState<string>(
+    'LTA DataMall v3 (20s)'
+  );
+  const [apiHealth, setApiHealth] = useState<ApiHealthResponse | null>(null);
 
-  // Live 1-second arrival countdown tick
+  const checkHealth = useCallback(async (verifyUpstream = false) => {
+    try {
+      const health = await fetchApiHealth(verifyUpstream);
+      setApiHealth(health);
+    } catch {
+      // Ignore transient health errors
+    }
+  }, []);
+
+  const syncBusStopWithLtaApi = useCallback(
+    async (stopCodeToFetch: string, serviceNo?: string) => {
+      const cleanStopCode = stopCodeToFetch.trim() || '04121';
+      setIsFetchingLta(true);
+      try {
+        const data = await fetchLtaBusArrivals(cleanStopCode, serviceNo);
+        setLastUpdatedSecondsAgo(0);
+
+        if (data._meta?.configuredAccountKey) {
+          setLtaSourceLabel('LTA DataMall v3 Live (20s)');
+        } else {
+          setLtaSourceLabel('LTA v3 Endpoint Ready (20s)');
+        }
+
+        setBusStops((prevStops) => {
+          const existingStop = prevStops.find((s) => s.code === cleanStopCode);
+          const mappedServices = mapLtaServicesToAppServices(
+            data.Services || [],
+            existingStop?.services || []
+          );
+
+          if (existingStop) {
+            return prevStops.map((stop) =>
+              stop.code === cleanStopCode
+                ? {
+                    ...stop,
+                    services:
+                      mappedServices.length > 0
+                        ? mappedServices
+                        : stop.services,
+                  }
+                : stop
+            );
+          }
+
+          // Dynamically add custom queried BusStopCode to the top of the list
+          const newStop: BusStop = {
+            code: cleanStopCode,
+            name: `Bus Stop ${cleanStopCode}`,
+            road: 'LTA DataMall Live Stop',
+            distanceMeters: 120,
+            walkMinutes: 2,
+            nearestMrtBadges: [{ line: 'EWL', code: 'EW12' }],
+            mapPos: { x: 580, y: 445 },
+            services: mappedServices,
+          };
+          return [newStop, ...prevStops];
+        });
+      } catch {
+        // Keep current timings if offline
+      } finally {
+        setIsFetchingLta(false);
+      }
+    },
+    []
+  );
+
+  // Initial API health check & initial LTA BusArrival fetch for 04121
+  useEffect(() => {
+    checkHealth(false);
+    syncBusStopWithLtaApi('04121');
+  }, [checkHealth, syncBusStopWithLtaApi]);
+
+  // Poll LTA BusArrival API every 20 seconds (matching LTA DataMall 20s refresh cadence)
+  // Plus 1-second local countdown interpolation between 20s refreshes
   useEffect(() => {
     const timer = setInterval(() => {
-      setLastUpdatedSecondsAgo((s) => (s >= 29 ? 0 : s + 1));
+      setLastUpdatedSecondsAgo((prev) => {
+        if (prev >= 19) {
+          syncBusStopWithLtaApi(selectedStopCode);
+          return 0;
+        }
+        return prev + 1;
+      });
 
       setBusStops((prevStops) =>
         prevStops.map((stop) => ({
@@ -64,9 +153,7 @@ export default function App() {
             arrivals: svc.arrivals.map((arr) => ({
               ...arr,
               secondsAway:
-                arr.secondsAway <= 5
-                  ? 720 + Math.floor(Math.random() * 180)
-                  : arr.secondsAway - 1,
+                arr.secondsAway <= 2 ? 0 : arr.secondsAway - 1,
             })) as BusServiceArrival['arrivals'],
           })),
         }))
@@ -89,22 +176,11 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [selectedStopCode, syncBusStopWithLtaApi]);
 
-  const handleRefreshArrivals = () => {
-    setLastUpdatedSecondsAgo(0);
-    setBusStops((prev) =>
-      prev.map((stop) => ({
-        ...stop,
-        services: stop.services.map((svc) => ({
-          ...svc,
-          arrivals: svc.arrivals.map((arr) => ({
-            ...arr,
-            secondsAway: Math.max(15, arr.secondsAway - 8),
-          })) as BusServiceArrival['arrivals'],
-        })),
-      }))
-    );
+  const handleRefreshArrivals = (stopCode?: string, serviceNo?: string) => {
+    const targetCode = stopCode || selectedStopCode || '04121';
+    syncBusStopWithLtaApi(targetCode, serviceNo);
   };
 
   const handleTogglePinService = (key: string) => {
@@ -120,6 +196,7 @@ export default function App() {
 
   const handleSelectBusStopFromMapOrList = (code: string) => {
     setSelectedStopCode(code);
+    syncBusStopWithLtaApi(code);
     if (activeTab !== 'nearby') {
       setActiveTab('nearby');
     }
@@ -259,7 +336,7 @@ export default function App() {
               <NearbyBusArrivalsScreen
                 busStops={busStops}
                 selectedStopCode={selectedStopCode}
-                onSelectBusStop={setSelectedStopCode}
+                onSelectBusStop={handleSelectBusStopFromMapOrList}
                 activeBusService={activeBusService}
                 onSelectBusService={(svc, code) => {
                   setActiveBusService(svc);
@@ -271,6 +348,8 @@ export default function App() {
                 onOpenStationHub={handleSelectStationFromMapOrList}
                 onRefreshArrivals={handleRefreshArrivals}
                 lastUpdatedSecondsAgo={lastUpdatedSecondsAgo}
+                isFetchingLta={isFetchingLta}
+                ltaSourceLabel={ltaSourceLabel}
               />
             )}
 
@@ -280,8 +359,7 @@ export default function App() {
                 selectedStationId={selectedStationId}
                 onSelectStation={setSelectedStationId}
                 onJumpToBusStop={(stopCode) => {
-                  setSelectedStopCode(stopCode);
-                  setActiveTab('nearby');
+                  handleSelectBusStopFromMapOrList(stopCode);
                 }}
               />
             )}
@@ -303,6 +381,8 @@ export default function App() {
               <NetworkStatusAndWalletScreen
                 selectedLineFilter={selectedLineFilter}
                 onSelectLineFilter={setSelectedLineFilter}
+                apiHealth={apiHealth}
+                onCheckApiHealth={checkHealth}
               />
             )}
           </section>
@@ -332,7 +412,7 @@ export default function App() {
                 Singapore Transit System — Multi-Screen Suite
               </h1>
               <p className="text-[15px] text-[#86868b]">
-                Live interactive screens for Bus Arrivals, MRT Platform & Carriage Load, Multimodal Route Planning, and Network Status.
+                Live LTA DataMall v3 BusArrival integration (20s refresh), MRT Platform & Carriage Load, Multimodal Route Planning, and API Health.
               </p>
             </div>
             <div className="flex items-center gap-3 text-[13px] text-[#86868b] tnum">
@@ -351,7 +431,7 @@ export default function App() {
                 <SingaporeTransitMap
                   busStops={busStops}
                   selectedStopCode={selectedStopCode}
-                  onSelectBusStop={setSelectedStopCode}
+                  onSelectBusStop={handleSelectBusStopFromMapOrList}
                   selectedStationId={selectedStationId}
                   onSelectStation={setSelectedStationId}
                   activeBusService={activeBusService}
@@ -368,13 +448,13 @@ export default function App() {
                     01. Live Bus & Nearby Stops
                   </span>
                   <span className="text-[11px] font-semibold text-[#0071e3]">
-                    Orchard GPS
+                    Stop {selectedStopCode}
                   </span>
                 </div>
                 <NearbyBusArrivalsScreen
                   busStops={busStops.slice(0, 2)}
                   selectedStopCode={selectedStopCode}
-                  onSelectBusStop={setSelectedStopCode}
+                  onSelectBusStop={handleSelectBusStopFromMapOrList}
                   activeBusService={activeBusService}
                   onSelectBusService={(svc, code) => {
                     setActiveBusService(svc);
@@ -387,6 +467,8 @@ export default function App() {
                   }}
                   onRefreshArrivals={handleRefreshArrivals}
                   lastUpdatedSecondsAgo={lastUpdatedSecondsAgo}
+                  isFetchingLta={isFetchingLta}
+                  ltaSourceLabel={ltaSourceLabel}
                 />
               </div>
             </div>
@@ -405,7 +487,9 @@ export default function App() {
                 stations={stations}
                 selectedStationId={selectedStationId}
                 onSelectStation={setSelectedStationId}
-                onJumpToBusStop={(stopCode) => setSelectedStopCode(stopCode)}
+                onJumpToBusStop={(stopCode) =>
+                  handleSelectBusStopFromMapOrList(stopCode)
+                }
               />
             </div>
 
@@ -441,6 +525,8 @@ export default function App() {
               <NetworkStatusAndWalletScreen
                 selectedLineFilter={selectedLineFilter}
                 onSelectLineFilter={setSelectedLineFilter}
+                apiHealth={apiHealth}
+                onCheckApiHealth={checkHealth}
               />
             </div>
           </div>

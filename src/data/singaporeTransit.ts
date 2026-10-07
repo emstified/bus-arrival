@@ -211,6 +211,107 @@ export const CROWD_META: Record<
 
 export const INITIAL_BUS_STOPS: BusStop[] = [
   {
+    code: '04121',
+    name: "St. Joseph's Ch",
+    road: 'Victoria St',
+    distanceMeters: 45,
+    walkMinutes: 1,
+    nearestMrtBadges: [
+      { line: 'EWL', code: 'EW12' },
+      { line: 'DTL', code: 'DT14' },
+    ],
+    mapPos: { x: 615, y: 425 },
+    services: [
+      {
+        serviceNo: '7',
+        operator: 'SBST',
+        destination: 'Clementi Int',
+        category: 'Trunk',
+        routeCoords: [
+          [780, 310],
+          [645, 395],
+          [615, 425],
+          [495, 430],
+          [320, 425],
+        ],
+        arrivals: [
+          { secondsAway: 42, crowd: 'seats', deck: 'DD', wheelchair: true, lat: 1.2976, lng: 103.8532 },
+          { secondsAway: 460, crowd: 'seats', deck: 'SD', wheelchair: true, lat: 1.2991, lng: 103.8548 },
+          { secondsAway: 910, crowd: 'standing', deck: 'DD', wheelchair: true, lat: 1.3012, lng: 103.8565 },
+        ],
+      },
+      {
+        serviceNo: '12',
+        operator: 'GAS',
+        destination: 'New Bridge Rd Ter',
+        category: 'Trunk',
+        routeCoords: [
+          [760, 380],
+          [645, 395],
+          [615, 425],
+          [555, 505],
+          [455, 570],
+        ],
+        arrivals: [
+          { secondsAway: 130, crowd: 'standing', deck: 'DD', wheelchair: true, lat: 1.2984, lng: 103.8541 },
+          { secondsAway: 520, crowd: 'seats', deck: 'DD', wheelchair: true, lat: 1.3005, lng: 103.8572 },
+          { secondsAway: 960, crowd: 'seats', deck: 'SD', wheelchair: true, lat: 1.3031, lng: 103.8601 },
+        ],
+      },
+      {
+        serviceNo: '175',
+        operator: 'SBST',
+        destination: 'Clementi Int',
+        category: 'Trunk',
+        routeCoords: [
+          [740, 290],
+          [615, 425],
+          [470, 525],
+          [320, 580],
+        ],
+        arrivals: [
+          { secondsAway: 85, crowd: 'seats', deck: 'DD', wheelchair: true, lat: 1.2979, lng: 103.8536 },
+          { secondsAway: 490, crowd: 'seats', deck: 'SD', wheelchair: true, lat: 1.3001, lng: 103.8559 },
+          { secondsAway: 890, crowd: 'standing', deck: 'DD', wheelchair: true, lat: 1.3025, lng: 103.8588 },
+        ],
+      },
+      {
+        serviceNo: '197',
+        operator: 'SBST',
+        destination: 'Jurong East Int',
+        category: 'Trunk',
+        routeCoords: [
+          [750, 350],
+          [615, 425],
+          [555, 505],
+          [405, 605],
+        ],
+        arrivals: [
+          { secondsAway: 310, crowd: 'crowded', deck: 'DD', wheelchair: true, lat: 1.2991, lng: 103.855 },
+          { secondsAway: 740, crowd: 'standing', deck: 'DD', wheelchair: true, lat: 1.3018, lng: 103.8579 },
+          { secondsAway: 1180, crowd: 'seats', deck: 'DD', wheelchair: true, lat: 1.3045, lng: 103.8612 },
+        ],
+      },
+      {
+        serviceNo: '851',
+        operator: 'SMRT',
+        destination: 'Bukit Merah Int',
+        category: 'Trunk',
+        routeCoords: [
+          [560, 210],
+          [615, 425],
+          [455, 570],
+          [405, 605],
+        ],
+        arrivals: [
+          { secondsAway: 55, crowd: 'seats', deck: 'DD', wheelchair: true, lat: 1.2977, lng: 103.8533 },
+          { secondsAway: 410, crowd: 'standing', deck: 'BD', wheelchair: true, lat: 1.3008, lng: 103.8549 },
+          { secondsAway: 830, crowd: 'seats', deck: 'DD', wheelchair: true, lat: 1.3039, lng: 103.8562 },
+        ],
+      },
+    ],
+  },
+  {
     code: '09048',
     name: 'Orchard Stn / Tang Plaza',
     road: 'Orchard Rd',
