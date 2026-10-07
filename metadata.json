@@ -1,0 +1,6 @@
+{
+  "name": "SG Transit Pulse",
+  "description": "Apple-HIG inspired real-time Singapore MRT, LRT, and Bus transit companion with live arrival countdowns, crowd occupancy gauges, multimodal route planning, and interactive network map.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

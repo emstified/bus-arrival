@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --surface: #fcf8fb;
+    --surface-dim: #dcd9dc;
+    --surface-bright: #fcf8fb;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f6f3f5;
+    --surface-container: #f0edef;
+    --surface-container-high: #eae7ea;
+    --surface-container-highest: #e4e2e4;
+    --on-surface: #1d1d1f;
+    --on-surface-variant: #414753;
+    --outline: #717785;
+    --outline-variant: #e5e5ea;
+    --primary: #0071e3;
+    --primary-dark: #0059b5;
+    --secondary: #34c759;
+    --tertiary: #ff9500;
+    --error: #ff3b30;
+
+    /* Singapore MRT Line Signature Colors */
+    --mrt-nsl: #d42e12;
+    --mrt-ewl: #009645;
+    --mrt-nel: #8f4199;
+    --mrt-ccl: #f99d1c;
+    --mrt-dtl: #005ec4;
+    --mrt-tel: #9d5b25;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', sans-serif;
+    background-color: #f2f2f7;
+    color: #1d1d1f;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on, 'cv05' on;
+}
+
+.frosted-glass {
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+.frosted-sheet {
+  background: rgba(251, 251, 253, 0.92);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+}
+
+.apple-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.03);
+  border-radius: 1.25rem;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(134, 134, 139, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(134, 134, 139, 0.45);
+}
+
